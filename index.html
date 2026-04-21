@@ -1,823 +1,1666 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <title>IPTV Indonesia</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NusaTV — IPTV Player</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.7/hls.min.js"></script>
+<style>
+:root {
+  --bg-void: #030508;
+  --bg-deep: #07090f;
+  --bg-surface: #0d1117;
+  --bg-elevated: #111827;
+  --bg-card: #161d2e;
+  --bg-hover: #1c2538;
+  --accent-primary: #00d4ff;
+  --accent-secondary: #7c3aed;
+  --accent-hot: #ff3b6b;
+  --accent-warm: #f59e0b;
+  --accent-green: #10b981;
+  --text-primary: #f0f4ff;
+  --text-secondary: #8892a4;
+  --text-muted: #4a5568;
+  --border-subtle: rgba(0, 212, 255, 0.08);
+  --border-glow: rgba(0, 212, 255, 0.3);
+  --shadow-neon: 0 0 20px rgba(0, 212, 255, 0.15), 0 0 60px rgba(0, 212, 255, 0.05);
+  --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.6);
+  --font-display: 'Syne', sans-serif;
+  --font-ui: 'Rajdhani', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --sidebar-w: 320px;
+  --ctrl-h: 72px;
+  --header-h: 52px;
+}
 
-    :root {
-      --bg: #0f0f0f;
-      --bg-secondary: #181818;
-      --bg-hover: #222;
-      --text: #fff;
-      --text-secondary: #aaa;
-      --accent: #e50914;
-      --border: #333;
-      --shadow: 0 4px 12px rgba(0, 0, 0, .5);
-    }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    body {
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      height: 100vh;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
+html, body {
+  width: 100%; height: 100%;
+  background: var(--bg-void);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  overflow: hidden;
+  user-select: none;
+}
 
-    .app {
-      display: flex;
-      flex: 1;
-      overflow: hidden;
-    }
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 20% 10%, rgba(0, 212, 255, 0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 90%, rgba(124, 58, 237, 0.05) 0%, transparent 60%);
+  pointer-events: none; z-index: 0;
+}
 
-    .player-container {
-      flex: 1;
-      position: relative;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #000;
-      transition: all .3s;
-    }
+#app {
+  position: relative; z-index: 1;
+  display: grid;
+  grid-template-rows: var(--header-h) 1fr;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  grid-template-areas: "header header" "sidebar main";
+  width: 100vw; height: 100vh;
+  transition: grid-template-columns 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
 
-    video {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      outline: none;
-    }
+#app.sidebar-collapsed {
+  grid-template-columns: 0 1fr;
+}
 
-    .player-controls {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: linear-gradient(transparent, rgba(0, 0, 0, .95));
-      padding: 12px 20px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      opacity: 0;
-      transition: opacity .25s;
-      z-index: 10;
-    }
+#app.theater-mode {
+  grid-template-columns: 0 1fr;
+  grid-template-rows: 0 1fr;
+}
 
-    .player-container:hover .player-controls,
-    .player-container.controls-visible .player-controls {
-      opacity: 1;
-    }
+#header {
+  grid-area: header;
+  display: flex; align-items: center;
+  padding: 0 20px;
+  background: rgba(7, 9, 15, 0.95);
+  border-bottom: 1px solid var(--border-subtle);
+  backdrop-filter: blur(20px);
+  z-index: 100;
+  gap: 16px;
+}
 
-    .btn {
-      background: var(--bg-secondary);
-      border: none;
-      color: var(--text);
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-      transition: all .2s;
-      flex-shrink: 0;
-    }
+#logo {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--font-display);
+  font-size: 20px; font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--accent-primary);
+  flex-shrink: 0;
+}
 
-    .btn:hover {
-      background: var(--accent);
-      transform: scale(1.05);
-    }
+#logo span {
+  color: var(--text-secondary);
+  font-weight: 400;
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  display: block;
+  line-height: 1;
+}
 
-    .btn:active {
-      transform: scale(.95);
-    }
+.logo-icon {
+  width: 32px; height: 32px;
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 16px rgba(0, 212, 255, 0.4);
+}
 
-    .volume-container {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex: 1;
-      max-width: 200px;
-    }
+.logo-icon svg { width: 18px; height: 18px; }
 
-    .volume-slider {
-      width: 100%;
-      accent-color: var(--accent);
-      cursor: pointer;
-      height: 4px;
-      border-radius: 2px;
-      background: var(--border);
-    }
+#search-wrap {
+  flex: 1; max-width: 400px;
+  position: relative;
+}
 
-    .volume-slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      background: var(--accent);
-      cursor: pointer;
-      transition: transform .1s;
-    }
+#search-input {
+  width: 100%; padding: 8px 16px 8px 40px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  outline: none;
+  transition: all 0.2s;
+}
 
-    .volume-slider::-webkit-slider-thumb:hover {
-      transform: scale(1.2);
-    }
+#search-input:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
+  background: var(--bg-card);
+}
 
-    .sidebar {
-      width: 380px;
-      background: var(--bg-secondary);
-      display: flex;
-      flex-direction: column;
-      border-left: 1px solid var(--border);
-      transition: transform .3s ease;
-      z-index: 5;
-    }
+#search-input::placeholder { color: var(--text-muted); }
 
-    .sidebar.hidden {
-      transform: translateX(100%);
-    }
+.search-icon {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  color: var(--text-muted); pointer-events: none;
+}
 
-    .search-box {
-      padding: 16px;
-      border-bottom: 1px solid var(--border);
-      position: sticky;
-      top: 0;
-      background: var(--bg-secondary);
-      z-index: 3;
-    }
+#header-stats {
+  display: flex; align-items: center; gap: 20px;
+  font-family: var(--font-mono);
+  font-size: 11px; color: var(--text-muted);
+  margin-left: auto;
+}
 
-    .search-input {
-      width: 100%;
-      padding: 12px 20px 12px 40px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 24px;
-      color: var(--text);
-      font-size: 14px;
-      outline: none;
-      transition: border-color .2s;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23aaa' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: 14px center;
-    }
+.stat-item { display: flex; align-items: center; gap: 6px; }
 
-    .search-input:focus {
-      border-color: var(--accent);
-    }
+.stat-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent-green);
+  animation: pulse-dot 2s infinite;
+}
 
-    .search-input::placeholder {
-      color: var(--text-secondary);
-    }
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--accent-green); }
+  50% { opacity: 0.4; box-shadow: none; }
+}
 
-    .channel-list {
-      flex: 1;
-      overflow-y: auto;
-      padding: 8px;
-      scroll-behavior: smooth;
-    }
+#btn-toggle-sidebar {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  width: 34px; height: 34px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s; flex-shrink: 0;
+}
 
-    .channel-list::-webkit-scrollbar {
-      width: 6px;
-    }
+#btn-toggle-sidebar:hover {
+  background: var(--bg-hover);
+  color: var(--accent-primary);
+  border-color: var(--border-glow);
+}
 
-    .channel-list::-webkit-scrollbar-track {
-      background: transparent;
-    }
+#sidebar {
+  grid-area: sidebar;
+  display: flex; flex-direction: column;
+  background: var(--bg-deep);
+  border-right: 1px solid var(--border-subtle);
+  overflow: hidden;
+  z-index: 50;
+}
 
-    .channel-list::-webkit-scrollbar-thumb {
-      background: var(--border);
-      border-radius: 3px;
-    }
+#category-tabs {
+  display: flex; gap: 4px;
+  padding: 12px 12px 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
 
-    .channel-list::-webkit-scrollbar-thumb:hover {
-      background: var(--text-secondary);
-    }
+#category-tabs::-webkit-scrollbar { display: none; }
 
-    .channel-item {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      padding: 12px 16px;
-      border-radius: 12px;
-      cursor: pointer;
-      transition: all .2s;
-      margin-bottom: 6px;
-      position: relative;
-      overflow: hidden;
-    }
+.cat-tab {
+  padding: 5px 12px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+  font-size: 12px; font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
 
-    .channel-item::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      width: 3px;
-      background: var(--accent);
-      opacity: 0;
-      transition: opacity .2s;
-    }
+.cat-tab:hover { color: var(--text-secondary); border-color: rgba(0,212,255,0.2); }
 
-    .channel-item:hover {
-      background: var(--bg-hover);
-      transform: translateX(4px);
-    }
+.cat-tab.active {
+  background: rgba(0, 212, 255, 0.1);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  box-shadow: 0 0 12px rgba(0,212,255,0.15);
+}
 
-    .channel-item:hover::before {
-      opacity: 1;
-    }
+#country-filter {
+  margin: 10px 12px 0;
+  padding: 7px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: calc(100% - 24px);
+}
 
-    .channel-item.active {
-      background: linear-gradient(90deg, rgba(229, 9, 20, .15), transparent);
-      border-left: 3px solid var(--accent);
-    }
+#country-filter:focus {
+  border-color: var(--accent-primary);
+  color: var(--text-primary);
+}
 
-    .channel-item.active .channel-name {
-      font-weight: 600;
-    }
+#country-filter option { background: var(--bg-elevated); }
 
-    .channel-logo {
-      width: 52px;
-      height: 52px;
-      object-fit: contain;
-      background: var(--bg);
-      border-radius: 10px;
-      flex-shrink: 0;
-      border: 1px solid var(--border);
-      transition: transform .2s;
-    }
+#channel-list-wrap {
+  flex: 1; overflow-y: auto;
+  padding: 10px 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--bg-elevated) transparent;
+}
 
-    .channel-item:hover .channel-logo {
-      transform: scale(1.05);
-    }
+#channel-list-wrap::-webkit-scrollbar { width: 4px; }
+#channel-list-wrap::-webkit-scrollbar-thumb { background: var(--bg-elevated); border-radius: 4px; }
 
-    .channel-info {
-      flex: 1;
-      min-width: 0;
-    }
+.channel-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.18s;
+  margin-bottom: 2px;
+  border: 1px solid transparent;
+  position: relative;
+  overflow: hidden;
+}
 
-    .channel-name {
-      font-size: 14px;
-      font-weight: 500;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      margin-bottom: 4px;
-    }
+.channel-item::before {
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--accent-primary);
+  transform: scaleY(0);
+  transition: transform 0.2s;
+  border-radius: 0 2px 2px 0;
+}
 
-    .channel-group {
-      font-size: 11px;
-      color: var(--text-secondary);
-      text-transform: uppercase;
-      letter-spacing: .5px;
-    }
+.channel-item:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-subtle);
+}
 
-    .channel-meta {
-      display: flex;
-      gap: 8px;
-      margin-top: 4px;
-    }
+.channel-item:hover::before { transform: scaleY(1); }
 
-    .badge {
-      font-size: 10px;
-      padding: 2px 8px;
-      background: var(--bg);
-      border-radius: 10px;
-      color: var(--text-secondary);
-    }
+.channel-item.active {
+  background: rgba(0, 212, 255, 0.08);
+  border-color: rgba(0, 212, 255, 0.2);
+}
 
-    .loading {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      color: var(--text-secondary);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 16px;
-    }
+.channel-item.active::before { transform: scaleY(1); }
 
-    .spinner {
-      width: 40px;
-      height: 40px;
-      border: 3px solid var(--border);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
+.ch-logo {
+  width: 40px; height: 40px;
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  object-fit: contain;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
 
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
-    }
+.ch-logo img {
+  width: 100%; height: 100%;
+  object-fit: contain;
+}
 
-    .error {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      color: #ff6b6b;
-      text-align: center;
-      padding: 24px;
-      background: rgba(255, 107, 107, .1);
-      border-radius: 12px;
-      max-width: 300px;
-      border: 1px solid rgba(255, 107, 107, .3);
-    }
+.ch-logo-placeholder {
+  font-family: var(--font-display);
+  font-size: 12px; font-weight: 700;
+  color: var(--accent-primary);
+  text-transform: uppercase;
+}
 
-    .error-title {
-      font-weight: 600;
-      margin-bottom: 8px;
-    }
+.ch-info { flex: 1; min-width: 0; }
 
-    .error-msg {
-      font-size: 14px;
-      color: var(--text-secondary);
-    }
+.ch-name {
+  font-size: 13px; font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  line-height: 1.3;
+}
 
-    .fullscreen .sidebar {
-      display: none !important;
-    }
+.ch-meta {
+  font-size: 10px; color: var(--text-muted);
+  font-family: var(--font-mono);
+  margin-top: 2px;
+  display: flex; align-items: center; gap: 6px;
+}
 
-    .fullscreen .player-container {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      z-index: 100;
-      background: #000;
-    }
+.ch-badge {
+  font-size: 9px; padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
 
-    .fullscreen .player-controls {
-      padding: 16px 30px;
-    }
+.badge-live {
+  background: rgba(255, 59, 107, 0.15);
+  color: var(--accent-hot);
+  border: 1px solid rgba(255, 59, 107, 0.3);
+}
 
-    .no-channels {
-      text-align: center;
-      padding: 40px 20px;
-      color: var(--text-secondary);
-    }
+.badge-hd {
+  background: rgba(0, 212, 255, 0.1);
+  color: var(--accent-primary);
+  border: 1px solid rgba(0, 212, 255, 0.2);
+}
 
-    .no-channels-icon {
-      font-size: 48px;
-      margin-bottom: 16px;
-      opacity: .5;
-    }
+.ch-loading-indicator {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
 
-    .stats {
-      padding: 12px 16px;
-      font-size: 12px;
-      color: var(--text-secondary);
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      justify-content: space-between;
-    }
+.spinner {
+  width: 28px; height: 28px;
+  border: 2px solid var(--border-subtle);
+  border-top-color: var(--accent-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 12px;
+}
 
-    @media(max-width:1024px) {
-      .sidebar {
-        width: 320px;
-      }
-    }
+@keyframes spin { to { transform: rotate(360deg); } }
 
-    @media(max-width:768px) {
-      .app {
-        flex-direction: column;
-      }
-      .player-container {
-        max-height: 45vh;
-      }
-      .sidebar {
-        width: 100%;
-        height: 55%;
-        border-left: none;
-        border-top: 1px solid var(--border);
-      }
-      .sidebar.hidden {
-        transform: translateY(100%);
-      }
-      .fullscreen .player-container {
-        max-height: 100vh;
-      }
-      .channel-logo {
-        width: 44px;
-        height: 44px;
-      }
-    }
+#main {
+  grid-area: main;
+  display: flex; flex-direction: column;
+  background: var(--bg-void);
+  overflow: hidden;
+  position: relative;
+}
 
-    @media(max-width:480px) {
-      .player-controls {
-        padding: 10px 16px;
-        gap: 12px;
-      }
-      .btn {
-        width: 36px;
-        height: 36px;
-        font-size: 16px;
-      }
-      .volume-container {
-        max-width: 120px;
-      }
-      .search-input {
-        padding: 10px 16px 10px 36px;
-        font-size: 13px;
-      }
-      .channel-item {
-        padding: 10px 14px;
-        gap: 12px;
-      }
-      .channel-logo {
-        width: 40px;
-        height: 40px;
-      }
-      .channel-name {
-        font-size: 13px;
-      }
-    }
-  </style>
+#video-wrapper {
+  flex: 1;
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+  overflow: hidden;
+  background: #000;
+  cursor: none;
+}
+
+#video-wrapper:hover { cursor: default; }
+
+#main-video {
+  width: 100%; height: 100%;
+  object-fit: contain;
+  transform-origin: center center;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: block;
+}
+
+#video-overlay {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none;
+}
+
+#loading-overlay {
+  position: absolute; inset: 0;
+  background: rgba(3, 5, 8, 0.85);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 16px;
+  z-index: 20;
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+#loading-overlay.visible { opacity: 1; pointer-events: all; }
+
+.loading-ring {
+  width: 60px; height: 60px;
+  border: 3px solid rgba(0,212,255,0.1);
+  border-top-color: var(--accent-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.loading-text {
+  font-family: var(--font-mono);
+  font-size: 12px; color: var(--accent-primary);
+  letter-spacing: 2px;
+}
+
+#no-stream-overlay {
+  position: absolute; inset: 0;
+  background: var(--bg-void);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 20px; z-index: 10;
+}
+
+.no-stream-icon {
+  width: 80px; height: 80px;
+  border: 2px solid var(--border-subtle);
+  border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted);
+  background: var(--bg-surface);
+}
+
+.no-stream-title {
+  font-family: var(--font-display);
+  font-size: 22px; font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.no-stream-sub {
+  font-size: 13px; color: var(--text-muted);
+  text-align: center; max-width: 280px; line-height: 1.6;
+}
+
+#channel-info-bar {
+  position: absolute; top: 0; left: 0; right: 0;
+  padding: 16px 20px;
+  background: linear-gradient(to bottom, rgba(3,5,8,0.95) 0%, transparent 100%);
+  display: flex; align-items: flex-start;
+  gap: 14px;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.3s;
+  z-index: 15;
+}
+
+#video-wrapper:hover #channel-info-bar,
+#channel-info-bar.pinned { opacity: 1; pointer-events: all; }
+
+.info-logo-wrap {
+  width: 48px; height: 48px;
+  border-radius: 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.info-logo-wrap img { width: 100%; height: 100%; object-fit: contain; }
+
+.info-text .info-name {
+  font-family: var(--font-display);
+  font-size: 17px; font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.info-text .info-sub {
+  font-size: 11px; color: var(--text-muted);
+  font-family: var(--font-mono);
+  margin-top: 4px;
+  display: flex; align-items: center; gap: 8px;
+}
+
+.live-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px;
+  background: var(--accent-hot);
+  border-radius: 4px;
+  font-size: 9px; font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: white;
+}
+
+.live-badge::before {
+  content: '';
+  width: 5px; height: 5px;
+  border-radius: 50%; background: white;
+  animation: pulse-dot 1.5s infinite;
+}
+
+#controls-bar {
+  height: var(--ctrl-h);
+  background: rgba(7, 9, 15, 0.98);
+  border-top: 1px solid var(--border-subtle);
+  display: flex; align-items: center;
+  padding: 0 16px;
+  gap: 10px;
+  flex-shrink: 0;
+  backdrop-filter: blur(20px);
+  position: relative;
+  z-index: 30;
+}
+
+#progress-track {
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--bg-elevated);
+  cursor: pointer;
+  transition: height 0.2s;
+}
+
+#progress-track:hover { height: 5px; }
+
+#progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+  width: 0%;
+  transition: width 0.5s linear;
+  position: relative;
+}
+
+#progress-fill::after {
+  content: '';
+  position: absolute; right: -4px; top: 50%; transform: translateY(-50%);
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  box-shadow: 0 0 10px var(--accent-primary);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+#progress-track:hover #progress-fill::after { opacity: 1; }
+
+.ctrl-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  width: 38px; height: 38px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.18s;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.ctrl-btn:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.ctrl-btn.active { color: var(--accent-primary); }
+
+.ctrl-btn svg { width: 18px; height: 18px; }
+
+.ctrl-btn.large svg { width: 22px; height: 22px; }
+
+.ctrl-btn.primary {
+  background: var(--accent-primary);
+  color: var(--bg-void);
+  width: 44px; height: 44px;
+  box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+}
+
+.ctrl-btn.primary:hover {
+  background: var(--text-primary);
+  box-shadow: 0 0 28px rgba(0, 212, 255, 0.5);
+  transform: scale(1.05);
+}
+
+.ctrl-divider {
+  width: 1px; height: 24px;
+  background: var(--border-subtle);
+  flex-shrink: 0;
+}
+
+#volume-group {
+  display: flex; align-items: center; gap: 8px;
+  flex-shrink: 0;
+}
+
+#volume-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 90px; height: 4px;
+  border-radius: 4px;
+  background: var(--bg-elevated);
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+#volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(0, 212, 255, 0.5);
+  transition: transform 0.2s;
+}
+
+#volume-slider:hover::-webkit-slider-thumb { transform: scale(1.2); }
+
+#volume-display {
+  font-family: var(--font-mono);
+  font-size: 11px; color: var(--text-muted);
+  width: 28px; text-align: right;
+}
+
+#zoom-group {
+  display: flex; align-items: center; gap: 6px;
+}
+
+#zoom-display {
+  font-family: var(--font-mono);
+  font-size: 11px; color: var(--accent-primary);
+  background: rgba(0,212,255,0.08);
+  padding: 3px 8px; border-radius: 4px;
+  border: 1px solid rgba(0,212,255,0.15);
+  min-width: 44px; text-align: center;
+}
+
+#time-display {
+  font-family: var(--font-mono);
+  font-size: 12px; color: var(--text-muted);
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.quality-menu {
+  position: absolute; bottom: calc(100% + 10px); right: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 6px;
+  min-width: 120px;
+  display: none;
+  z-index: 200;
+  box-shadow: var(--shadow-card);
+}
+
+.quality-menu.open { display: block; }
+
+.quality-option {
+  padding: 7px 12px;
+  border-radius: 6px;
+  font-size: 12px; font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+.quality-option:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+.quality-option.selected { color: var(--accent-primary); }
+
+#toast-container {
+  position: fixed; top: 70px; right: 20px;
+  z-index: 9999;
+  display: flex; flex-direction: column; gap: 10px;
+  pointer-events: none;
+}
+
+.toast {
+  padding: 10px 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  font-size: 13px; color: var(--text-primary);
+  font-family: var(--font-ui);
+  box-shadow: var(--shadow-card);
+  display: flex; align-items: center; gap: 10px;
+  transform: translateX(120%);
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  max-width: 280px;
+}
+
+.toast.show { transform: translateX(0); }
+
+.toast-icon { flex-shrink: 0; }
+
+#pip-indicator {
+  position: fixed; bottom: 90px; right: 20px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--accent-primary);
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 12px; color: var(--accent-primary);
+  font-family: var(--font-mono);
+  box-shadow: 0 0 20px rgba(0,212,255,0.2);
+  display: none;
+  z-index: 500;
+}
+
+#keyboard-hints {
+  position: absolute; bottom: 90px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 12px;
+  flex-wrap: wrap; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+#keyboard-hints.show { opacity: 1; }
+
+.hint-key {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.key-badge {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 10px; color: var(--text-secondary);
+}
+
+#zoom-overlay {
+  position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+  background: rgba(0,212,255,0.15);
+  border: 1px solid rgba(0,212,255,0.3);
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-family: var(--font-mono);
+  font-size: 13px; color: var(--accent-primary);
+  pointer-events: none;
+  opacity: 0; transition: opacity 0.3s;
+  z-index: 25;
+}
+
+#zoom-overlay.visible { opacity: 1; }
+
+.sidebar-header {
+  padding: 12px 16px 6px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+.sidebar-title {
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 2px;
+  color: var(--text-muted);
+}
+
+#channel-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: rgba(0,212,255,0.08);
+  color: var(--accent-primary);
+  padding: 2px 8px; border-radius: 4px;
+}
+
+.error-state {
+  padding: 20px;
+  text-align: center;
+  color: var(--accent-hot);
+  font-size: 12px;
+  font-family: var(--font-mono);
+}
+
+#hover-controls {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  padding: 60px 20px 20px;
+  background: linear-gradient(to top, rgba(3,5,8,0.9) 0%, transparent 100%);
+  display: flex; align-items: center;
+  gap: 10px;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.3s;
+  z-index: 15;
+}
+
+#video-wrapper:hover #hover-controls { opacity: 1; pointer-events: all; }
+
+.hover-btn {
+  background: rgba(7,9,15,0.8);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: var(--text-primary);
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+  backdrop-filter: blur(10px);
+}
+
+.hover-btn:hover {
+  background: rgba(0,212,255,0.15);
+  border-color: rgba(0,212,255,0.4);
+  color: var(--accent-primary);
+  transform: scale(1.05);
+}
+
+.hover-btn svg { width: 16px; height: 16px; }
+
+#center-play-btn {
+  position: absolute;
+  background: rgba(0,212,255,0.15);
+  border: 2px solid var(--accent-primary);
+  color: var(--accent-primary);
+  width: 70px; height: 70px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 0 40px rgba(0,212,255,0.3);
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 16;
+  opacity: 0; pointer-events: none;
+}
+
+#center-play-btn:hover {
+  background: rgba(0,212,255,0.25);
+  transform: scale(1.1);
+}
+
+#center-play-btn.visible { opacity: 1; pointer-events: all; }
+
+#center-play-btn svg { width: 28px; height: 28px; }
+
+.panel-btn {
+  position: relative;
+}
+
+.tooltip {
+  position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font-size: 11px; white-space: nowrap;
+  padding: 4px 8px; border-radius: 5px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  font-family: var(--font-ui);
+}
+
+.ctrl-btn:hover .tooltip,
+.hover-btn:hover .tooltip { opacity: 1; }
+</style>
 </head>
-
 <body>
-  <div class="app">
-    <div class="player-container" id="playerContainer">
-      <video id="player" playsinline preload="metadata"></video>
-      <div class="player-controls">
-        <button class="btn" id="playPause" title="Play/Pause (Space)">▶</button>
-        <div class="volume-container">
-          <span style="font-size:18px;cursor:pointer" id="volumeIcon">🔊</span>
-          <input type="range" class="volume-slider" id="volume" min="0" max="1" step="0.05" value="1" title="Volume (↑/↓)">
-        </div>
-        <div style="flex:1"></div>
-        <button class="btn" id="fullscreen" title="Fullscreen (F)">⛶</button>
+<div id="app">
+  <header id="header">
+    <div id="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+          <path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/>
+          <polygon points="10,8 16,12 10,16" fill="white" stroke="none"/>
+        </svg>
       </div>
-      <div class="loading" id="loading">
+      <div>
+        NusaTV
+        <span>IPTV Stream</span>
+      </div>
+    </div>
+    <div id="search-wrap">
+      <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+      <input id="search-input" type="text" placeholder="Cari channel...">
+    </div>
+    <div id="header-stats">
+      <div class="stat-item">
+        <div class="stat-dot"></div>
+        <span id="stat-channels">— CH</span>
+      </div>
+      <div class="stat-item">
+        <span id="stat-streams">— Streams</span>
+      </div>
+    </div>
+    <button id="btn-toggle-sidebar" title="Toggle Sidebar">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+        <line x1="9" y1="3" x2="9" y2="21"/>
+      </svg>
+    </button>
+  </header>
+
+  <aside id="sidebar">
+    <div id="category-tabs">
+      <button class="cat-tab active" data-cat="all">Semua</button>
+      <button class="cat-tab" data-cat="general">General</button>
+      <button class="cat-tab" data-cat="news">Berita</button>
+      <button class="cat-tab" data-cat="sports">Olahraga</button>
+      <button class="cat-tab" data-cat="movies">Film</button>
+      <button class="cat-tab" data-cat="music">Musik</button>
+      <button class="cat-tab" data-cat="kids">Anak</button>
+      <button class="cat-tab" data-cat="entertainment">Hiburan</button>
+    </div>
+
+    <select id="country-filter">
+      <option value="">— Semua Negara —</option>
+    </select>
+
+    <div class="sidebar-header">
+      <span class="sidebar-title">Channels</span>
+      <span id="channel-count">0</span>
+    </div>
+
+    <div id="channel-list-wrap">
+      <div class="ch-loading-indicator">
         <div class="spinner"></div>
-        <div>Memuat channel Indonesia...</div>
-      </div>
-      <div class="error" id="error" style="display:none">
-        <div class="error-title">Terjadi Kesalahan</div>
-        <div class="error-msg" id="errorMsg"></div>
+        Memuat daftar channel...
       </div>
     </div>
-    <div class="sidebar" id="sidebar">
-      <div class="search-box">
-        <input type="text" class="search-input" id="search" placeholder="Cari channel..." autocomplete="off">
-      </div>
-      <div class="stats" id="stats">
-        <span id="channelCount">0 channel</span>
-        <span id="filteredCount"></span>
-      </div>
-      <div class="channel-list" id="channelList"></div>
-    </div>
-  </div>
+  </aside>
 
-  <script>
-    const M3U_URL = 'https://iptv-org.github.io/iptv/index.m3u';
-    const player = document.getElementById('player');
-    const channelList = document.getElementById('channelList');
-    const searchInput = document.getElementById('search');
-    const loading = document.getElementById('loading');
-    const error = document.getElementById('error');
-    const errorMsg = document.getElementById('errorMsg');
-    const playPauseBtn = document.getElementById('playPause');
-    const volumeSlider = document.getElementById('volume');
-    const volumeIcon = document.getElementById('volumeIcon');
-    const fullscreenBtn = document.getElementById('fullscreen');
-    const sidebar = document.getElementById('sidebar');
-    const playerContainer = document.getElementById('playerContainer');
-    const channelCount = document.getElementById('channelCount');
-    const filteredCount = document.getElementById('filteredCount');
+  <main id="main">
+    <div id="video-wrapper">
+      <video id="main-video" playsinline></video>
 
-    let channels = [];
-    let filteredChannels =[];
-    let activeChannel = null;
-    let debounceTimer;
-    let renderStart = 0;
-    const RENDER_BATCH = 50;
-    let controlsTimer;
-
-    const parseM3U = (text) => {
-      const lines = text.split('\n');
-      const result =[];
-      let current = {};
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (line.startsWith('#EXTINF:')) {
-          const rest = line.substring(8);
-          const parts = rest.split(',');
-          const name = parts[parts.length - 1] || '';
-          current = { name, logo: '', group: '', url: '', tvgId: '', country: '' };
-          const attrStr = parts.slice(0, -1).join(',');
-          
-          const getAttr = (key) => {
-            const regex = new RegExp(key + '="([^"]*)"', 'i');
-            const match = attrStr.match(regex);
-            return match ? match[1] : '';
-          };
-          
-          current.tvgId = getAttr('tvg-id');
-          current.logo = getAttr('tvg-logo');
-          current.group = getAttr('group-title');
-          current.country = getAttr('country');
-        } else if (line && !line.startsWith('#') && current.name) {
-          current.url = line;
-          if (current.name && current.url) {
-            result.push({ ...current });
-          }
-          current = {};
-        }
-      }
-      return result;
-    };
-
-    const isIndonesian = (ch) => {
-      if (ch.country && ch.country.toLowerCase() === 'id') return true;
-      if (ch.tvgId && ch.tvgId.toLowerCase().includes('.id')) return true;
-      if (ch.tvgId && /^(id|indonesia)/i.test(ch.tvgId)) return true;
-      
-      const name = ch.name.toLowerCase();
-      const idPatterns =[
-        'indonesia', ' indosiar', ' rcti', ' sctv', ' trans tv', 'trans7', ' antv', 
-        ' gtv', ' mnctv', ' tvri', ' kompas tv', ' metro tv', ' net tv', ' inews', 
-        ' beritasatu', ' cnbc indonesia', ' bloomberg indonesia', ' jakarta tv', 
-        ' jaktv', ' bandung tv', ' surabaya tv', ' medan tv', ' makassar tv', ' balitv', 
-        ' jogja tv', ' tvone', ' elshinta', ' magna channel', ' moji', ' vision prime', 
-        ' idx channel', ' rumah channel', ' nusantara tv', ' jambi tv', ' lampung tv', 
-        ' palembang tv', ' padang tv', ' pekanbaru tv', ' pontianak tv', ' manado tv', 
-        ' ambon tv', ' jayapura tv', ' kaltim tv', ' kalseltv', ' babel tv', ' banten tv', 
-        ' bogor tv', ' cirebon tv', ' tasik tv', ' tegal tv', ' semarang tv', ' solo tv', 
-        ' malang tv', ' kediri tv', ' jember tv', ' banyuwangi tv', ' probolinggo tv', 
-        ' pasuruan tv', ' madiun tv', ' blitar tv', ' tulungagung tv', ' nganjuk tv', 
-        ' bojonegoro tv', ' tuban tv', ' lamongan tv', ' gresik tv', ' sidoarjo tv', 
-        ' mojokerto tv', ' jombang tv', ' ngawi tv', ' magetan tv', ' pacitan tv', 
-        ' ponorogo tv', ' trenggalek tv', ' blora tv', ' rembang tv', ' pati tv', 
-        ' kudus tv', ' jepara tv', ' demak tv', ' grobogan tv', ' brebes tv', 
-        ' pemalang tv', ' batang tv', ' kendal tv', ' temanggung tv', ' wonosobo tv', 
-        ' magelang tv', ' purworejo tv', ' kebumen tv', ' cilacap tv', ' banjarnegara tv', 
-        ' purbalingga tv', ' banyumas tv', ' tv 9', 'tv9', 'sbo tv', 'mytv', 'net', 
-        'kompas', 'metro', 'berita', 'channel', 'indonesia'
-      ];
-      return idPatterns.some(p => name.includes(p));
-    };
-
-    const filterChannels = (list) => {
-      return list.filter(isIndonesian).sort((a, b) => a.name.localeCompare(b.name, 'id'));
-    };
-
-    const createChannelItem = (ch, idx) => {
-      const item = document.createElement('div');
-      item.className = 'channel-item' + (ch === activeChannel ? ' active' : '');
-      item.dataset.index = idx;
-      const placeholder = 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%23222%22 width=%22100%22 height=%22100%22 rx=%2210%22/><text x=%2250%22 y=%2258%22 fill=%22%23555%22 font-size=%2214%22 text-anchor=%22middle%22 font-weight=%22600%22>TV</text></svg>';
-      
-      item.innerHTML = `
-        <img class="channel-logo" src="${ch.logo || placeholder}" alt="${ch.name}" onerror="this.src='${placeholder}'">
-        <div class="channel-info">
-          <div class="channel-name">${ch.name}</div>
-          <div class="channel-group">${ch.group || 'Umum'}</div>
+      <div id="no-stream-overlay">
+        <div class="no-stream-icon">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="2" y="7" width="20" height="15" rx="2" ry="2"/>
+            <polyline points="17,2 12,7 7,2"/>
+          </svg>
         </div>
-      `;
-      
-      item.addEventListener('click', () => playChannel(ch));
-      return item;
-    };
+        <div class="no-stream-title">Pilih Channel</div>
+        <div class="no-stream-sub">Pilih saluran dari daftar di sebelah kiri untuk mulai menonton</div>
+      </div>
 
-    const renderChannels = (list, append = false) => {
-      if (!append) {
-        channelList.innerHTML = '';
-        renderStart = 0;
-      }
-      if (list.length === 0 && !append) {
-        channelList.innerHTML = `
-          <div class="no-channels">
-            <div class="no-channels-icon">📺</div>
-            <div>Tidak ada channel ditemukan</div>
-            <div style="font-size:12px;margin-top:8px;opacity:.7">Coba kata kunci lain</div>
+      <div id="loading-overlay">
+        <div class="loading-ring"></div>
+        <div class="loading-text">MEMUAT STREAM...</div>
+      </div>
+
+      <div id="channel-info-bar">
+        <div class="info-logo-wrap" id="info-logo-wrap">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="2" y="7" width="20" height="15" rx="2"/>
+          </svg>
+        </div>
+        <div class="info-text">
+          <div class="info-name" id="info-name">—</div>
+          <div class="info-sub">
+            <span class="live-badge">LIVE</span>
+            <span id="info-country">—</span>
+            <span id="info-category">—</span>
           </div>
-        `;
-        return;
+        </div>
+      </div>
+
+      <div id="zoom-overlay">100%</div>
+
+      <div id="center-play-btn" id="center-play-btn">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="5,3 19,12 5,21"/>
+        </svg>
+      </div>
+
+      <div id="hover-controls">
+        <div class="hover-btn panel-btn" id="hov-zoom-out" title="Zoom Out">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/>
+          </svg>
+          <div class="tooltip">Zoom Out</div>
+        </div>
+        <div class="hover-btn panel-btn" id="hov-zoom-in" title="Zoom In">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/>
+          </svg>
+          <div class="tooltip">Zoom In</div>
+        </div>
+        <div class="hover-btn panel-btn" id="hov-zoom-reset" title="Reset Zoom">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3.51 15a9 9 0 1 0 .49-3.82"/><polyline points="1 10 3.5 10.5 5 8.5"/>
+          </svg>
+          <div class="tooltip">Reset Zoom</div>
+        </div>
+        <div style="margin-left:auto" class="hover-btn panel-btn" id="hov-screenshot" title="Screenshot">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+          <div class="tooltip">Screenshot</div>
+        </div>
+        <div class="hover-btn panel-btn" id="hov-pip" title="Picture in Picture">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="4" width="20" height="16" rx="2"/><rect x="12" y="11" width="9" height="7" rx="1"/>
+          </svg>
+          <div class="tooltip">Picture-in-Picture</div>
+        </div>
+        <div class="hover-btn panel-btn" id="hov-fullscreen" title="Fullscreen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
+            <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+          </svg>
+          <div class="tooltip">Layar Penuh</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="controls-bar">
+      <div id="progress-track">
+        <div id="progress-fill"></div>
+      </div>
+
+      <button class="ctrl-btn panel-btn" id="btn-prev" title="Channel Sebelumnya">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="15,18 9,12 15,6"/>
+        </svg>
+        <div class="tooltip">Sebelumnya</div>
+      </button>
+
+      <button class="ctrl-btn primary large panel-btn" id="btn-play">
+        <svg id="icon-play" viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="5,3 19,12 5,21"/>
+        </svg>
+        <svg id="icon-pause" viewBox="0 0 24 24" fill="currentColor" style="display:none">
+          <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+        </svg>
+        <div class="tooltip">Play / Pause</div>
+      </button>
+
+      <button class="ctrl-btn panel-btn" id="btn-next" title="Channel Berikutnya">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="9,18 15,12 9,6"/>
+        </svg>
+        <div class="tooltip">Berikutnya</div>
+      </button>
+
+      <div class="ctrl-divider"></div>
+
+      <div id="volume-group">
+        <button class="ctrl-btn panel-btn" id="btn-mute">
+          <svg id="icon-vol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+          </svg>
+          <svg id="icon-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none">
+            <polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/>
+            <line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>
+          </svg>
+          <div class="tooltip">Mute / Unmute</div>
+        </button>
+        <input type="range" id="volume-slider" min="0" max="100" value="80">
+        <div id="volume-display">80%</div>
+      </div>
+
+      <div class="ctrl-divider"></div>
+
+      <div id="zoom-group">
+        <button class="ctrl-btn panel-btn" id="btn-zoom-out" title="Zoom Out">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/>
+          </svg>
+          <div class="tooltip">Zoom Out ( - )</div>
+        </button>
+        <div id="zoom-display">100%</div>
+        <button class="ctrl-btn panel-btn" id="btn-zoom-in" title="Zoom In">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/>
+          </svg>
+          <div class="tooltip">Zoom In ( + )</div>
+        </button>
+        <button class="ctrl-btn panel-btn" id="btn-zoom-reset" title="Reset Zoom">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3.51 15a9 9 0 1 0 .49-3.82"/><polyline points="1 10 3.5 10.5 5 8.5"/>
+          </svg>
+          <div class="tooltip">Reset Zoom</div>
+        </button>
+      </div>
+
+      <div class="ctrl-divider"></div>
+
+      <button class="ctrl-btn panel-btn" id="btn-pip" title="Picture in Picture">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="4" width="20" height="16" rx="2"/>
+          <rect x="12" y="11" width="9" height="7" rx="1"/>
+        </svg>
+        <div class="tooltip">PiP Mode</div>
+      </button>
+
+      <button class="ctrl-btn panel-btn" id="btn-theater" title="Theater Mode">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="5" width="20" height="14" rx="2"/>
+          <line x1="2" y1="10" x2="22" y2="10"/>
+        </svg>
+        <div class="tooltip">Theater Mode</div>
+      </button>
+
+      <button class="ctrl-btn panel-btn" id="btn-screenshot" title="Screenshot">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+        <div class="tooltip">Screenshot</div>
+      </button>
+
+      <button class="ctrl-btn panel-btn" id="btn-fullscreen" title="Fullscreen">
+        <svg id="icon-fs-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
+          <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+        </svg>
+        <svg id="icon-fs-compress" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none">
+          <polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/>
+          <line x1="10" y1="14" x2="3" y2="21"/><line x1="21" y1="3" x2="14" y2="10"/>
+        </svg>
+        <div class="tooltip">Fullscreen ( F )</div>
+      </button>
+
+      <div id="time-display" id="time-display">00:00 / LIVE</div>
+    </div>
+  </main>
+</div>
+
+<div id="toast-container"></div>
+<div id="pip-indicator">📺 Picture-in-Picture aktif</div>
+
+<script>
+const API_BASE = 'https://iptv-org.github.io/api';
+const video = document.getElementById('main-video');
+
+let allChannels = [];
+let allStreams = [];
+let channelStreamMap = {};
+let filteredChannels = [];
+let currentIndex = -1;
+let currentZoom = 1;
+let zoomStep = 0.15;
+let zoomMin = 0.5;
+let zoomMax = 3;
+let activeCategory = 'all';
+let activeCountry = '';
+let searchQuery = '';
+let hls = null;
+let isPlaying = false;
+let isMuted = false;
+let theaterMode = false;
+let progressTimer = null;
+let zoomHideTimer = null;
+let streamRetries = {};
+
+function showToast(msg, type = 'info') {
+  const icons = {
+    info: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+    success: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>',
+    error: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff3b6b" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+    warning: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><path d="m10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+  };
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.innerHTML = `<span class="toast-icon">${icons[type] || icons.info}</span><span>${msg}</span>`;
+  container.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('show'));
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 400);
+  }, 3000);
+}
+
+async function fetchJSON(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+async function loadData() {
+  try {
+    const [channels, streams] = await Promise.all([
+      fetchJSON(`${API_BASE}/channels.json`),
+      fetchJSON(`${API_BASE}/streams.json`)
+    ]);
+
+    allChannels = channels;
+    allStreams = streams;
+
+    channelStreamMap = {};
+    for (const s of streams) {
+      if (s.channel && s.url) {
+        if (!channelStreamMap[s.channel]) channelStreamMap[s.channel] = [];
+        channelStreamMap[s.channel].push(s);
       }
-      
-      const fragment = document.createDocumentFragment();
-      const end = Math.min(renderStart + RENDER_BATCH, list.length);
-      for (let i = renderStart; i < end; i++) {
-        fragment.appendChild(createChannelItem(list[i], i));
-      }
-      channelList.appendChild(fragment);
-      renderStart = end;
-      
-      if (renderStart < list.length) {
-        setTimeout(() => renderChannels(list, true), 50);
-      }
-    };
+    }
 
-    const showError = (msg) => {
-      loading.style.display = 'none';
-      error.style.display = 'block';
-      errorMsg.textContent = msg;
-    };
+    const channelsWithStreams = allChannels.filter(ch => channelStreamMap[ch.id]);
 
-    const hideError = () => {
-      error.style.display = 'none';
-    };
+    document.getElementById('stat-channels').textContent = `${channelsWithStreams.length} CH`;
+    document.getElementById('stat-streams').textContent = `${streams.length} Streams`;
 
-    const playChannel = (ch) => {
-      if (activeChannel === ch && player.src === ch.url) {
-        togglePlay();
-        return;
-      }
-      
-      // FIX KESALAHAN TIDAK HILANG: Panggil hideError setiap ganti channel
-      hideError(); 
-      
-      activeChannel = ch;
-      player.src = ch.url;
-      player.play().catch(e => {
-        console.warn('Playback error:', e);
-        showError('Gagal memutar stream. Mungkin diblokir CORS atau tidak didukung browser.');
-      });
-      
-      renderChannels(filteredChannels);
-      updateActiveHighlight();
-    };
+    const countries = [...new Set(channelsWithStreams.map(c => c.country).filter(Boolean))].sort();
+    const sel = document.getElementById('country-filter');
+    countries.forEach(code => {
+      const opt = document.createElement('option');
+      opt.value = code;
+      opt.textContent = code;
+      sel.appendChild(opt);
+    });
 
-    const updateActiveHighlight = () => {[...channelList.querySelectorAll('.channel-item')].forEach(item => {
-        const idx = parseInt(item.dataset.index);
-        item.classList.toggle('active', filteredChannels[idx] === activeChannel);
-      });
-    };
+    filteredChannels = channelsWithStreams;
+    renderChannelList();
+    showToast(`${channelsWithStreams.length} channel berhasil dimuat`, 'success');
+  } catch (err) {
+    console.error(err);
+    document.getElementById('channel-list-wrap').innerHTML = `<div class="error-state">Gagal memuat data.<br>Periksa koneksi internet.</div>`;
+    showToast('Gagal memuat data channel', 'error');
+  }
+}
 
-    const debounce = (fn, ms) => {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(fn, ms);
-    };
+function getInitials(name) {
+  return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
+}
 
-    const handleSearch = () => {
-      const q = searchInput.value.toLowerCase().trim();
-      filteredChannels = q 
-        ? channels.filter(ch => ch.name.toLowerCase().includes(q) || ch.group.toLowerCase().includes(q)) 
-        : [...channels];
-      renderChannels(filteredChannels);
-      updateStats();
-    };
+function renderChannelList() {
+  const wrap = document.getElementById('channel-list-wrap');
+  const q = searchQuery.toLowerCase();
 
-    const updateStats = () => {
-      channelCount.textContent = channels.length + ' channel';
-      filteredCount.textContent = filteredChannels.length !== channels.length 
-        ? `(${filteredChannels.length} ditemukan)` 
-        : '';
-    };
+  let list = allChannels.filter(ch => channelStreamMap[ch.id]);
 
-    const togglePlay = () => {
-      if (player.paused) {
-        player.play().catch(() => {});
-        playPauseBtn.textContent = '⏸';
-      } else {
-        player.pause();
-        playPauseBtn.textContent = '▶';
-      }
-    };
+  if (activeCategory !== 'all') {
+    list = list.filter(ch => ch.categories && ch.categories.includes(activeCategory));
+  }
+  if (activeCountry) {
+    list = list.filter(ch => ch.country === activeCountry);
+  }
+  if (q) {
+    list = list.filter(ch => ch.name.toLowerCase().includes(q) || (ch.alt_names && ch.alt_names.some(n => n.toLowerCase().includes(q))));
+  }
 
-    const toggleFullscreen = () => {
-      if (document.fullscreenElement) {
-        document.exitFullscreen();
-      } else {
-        playerContainer.requestFullscreen().catch(() => {});
-      }
-    };
+  filteredChannels = list;
+  document.getElementById('channel-count').textContent = list.length;
 
-    const updateVolume = () => {
-      const vol = parseFloat(volumeSlider.value);
-      player.volume = vol;
-      volumeIcon.textContent = vol === 0 ? '🔇' : vol < .5 ? '🔉' : '🔊';
-    };
+  if (!list.length) {
+    wrap.innerHTML = `<div class="ch-loading-indicator" style="color:var(--text-muted)">Tidak ada channel ditemukan</div>`;
+    return;
+  }
 
-    const showControls = () => {
-      playerContainer.classList.add('controls-visible');
-      clearTimeout(controlsTimer);
-      controlsTimer = setTimeout(() => playerContainer.classList.remove('controls-visible'), 3000);
-    };
+  const frag = document.createDocumentFragment();
+  list.forEach((ch, i) => {
+    const item = document.createElement('div');
+    item.className = 'channel-item' + (i === currentIndex ? ' active' : '');
+    item.dataset.index = i;
 
-    const init = async () => {
-      try {
-        hideError();
-        loading.style.display = 'flex';
-        
-        const res = await fetch(M3U_URL);
-        if (!res.ok) throw new Error('Status ' + res.status);
-        
-        const text = await res.text();
-        const parsed = parseM3U(text);
-        
-        channels = filterChannels(parsed);
-        filteredChannels = [...channels];
-        
-        if (channels.length === 0) throw new Error('Tidak ada channel Indonesia ditemukan');
-        
-        renderChannels(filteredChannels);
-        updateStats();
-        
-        if (channels[0]) {
-          setTimeout(() => playChannel(channels[0]), 500);
+    const streams = channelStreamMap[ch.id] || [];
+    const hasHD = streams.some(s => s.quality && s.quality.toLowerCase().includes('hd'));
+    const cat = ch.categories && ch.categories[0] ? ch.categories[0] : '—';
+
+    item.innerHTML = `
+      <div class="ch-logo">
+        ${ch.logo
+          ? `<img src="${ch.logo}" alt="${ch.name}" loading="lazy" onerror="this.parentElement.innerHTML='<span class=ch-logo-placeholder>${getInitials(ch.name)}</span>'">`
+          : `<span class="ch-logo-placeholder">${getInitials(ch.name)}</span>`
         }
-        
-        loading.style.display = 'none';
-        showControls();
-      } catch (e) {
-        console.error(e);
-        showError(e.message || 'Gagal memuat playlist');
-      }
-    };
+      </div>
+      <div class="ch-info">
+        <div class="ch-name">${ch.name}</div>
+        <div class="ch-meta">
+          <span class="ch-badge badge-live">LIVE</span>
+          ${hasHD ? '<span class="ch-badge badge-hd">HD</span>' : ''}
+          <span>${ch.country || '—'}</span>
+          <span>${cat}</span>
+        </div>
+      </div>`;
 
-    // Event Listeners
-    player.addEventListener('play', () => {
-      playPauseBtn.textContent = '⏸';
-      showControls();
+    item.addEventListener('click', () => playChannel(i));
+    frag.appendChild(item);
+  });
+
+  wrap.innerHTML = '';
+  wrap.appendChild(frag);
+}
+
+function playChannel(index) {
+  if (index < 0 || index >= filteredChannels.length) return;
+  currentIndex = index;
+
+  const ch = filteredChannels[index];
+  const streams = channelStreamMap[ch.id];
+  if (!streams || !streams.length) {
+    showToast('Stream tidak tersedia untuk channel ini', 'warning');
+    return;
+  }
+
+  const stream = streams[0];
+  loadStream(stream.url, ch);
+
+  document.querySelectorAll('.channel-item').forEach((el, i) => {
+    el.classList.toggle('active', i === index);
+  });
+
+  const activeEl = document.querySelector('.channel-item.active');
+  if (activeEl) activeEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+
+  updateInfoBar(ch);
+  document.getElementById('no-stream-overlay').style.display = 'none';
+}
+
+function loadStream(url, ch) {
+  showLoading(true);
+
+  if (hls) { hls.destroy(); hls = null; }
+  video.src = '';
+
+  const isHLS = url.includes('.m3u8') || url.includes('m3u8');
+  const isDash = url.includes('.mpd');
+
+  if (isHLS && Hls.isSupported()) {
+    hls = new Hls({
+      enableWorker: true,
+      lowLatencyMode: true,
+      backBufferLength: 90,
+      maxLoadingDelay: 4,
+      maxBufferLength: 30,
+      fragLoadingTimeOut: 20000,
+      manifestLoadingTimeOut: 15000
     });
-    
-    player.addEventListener('pause', () => {
-      playPauseBtn.textContent = '▶';
-      showControls();
+    hls.loadSource(url);
+    hls.attachMedia(video);
+    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      video.play().catch(() => {});
+      showLoading(false);
+      isPlaying = true;
+      updatePlayIcons();
     });
-    
-    player.addEventListener('error', () => showError('Gagal memutar stream'));
-    player.addEventListener('timeupdate', showControls);
-    
-    playerContainer.addEventListener('mousemove', showControls);
-    playerContainer.addEventListener('click', showControls);
-    
-    playPauseBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      togglePlay();
-    });
-    
-    volumeSlider.addEventListener('input', updateVolume);
-    
-    volumeIcon.addEventListener('click', e => {
-      e.stopPropagation();
-      if (player.volume > 0) {
-        volumeSlider.dataset.prev = player.volume;
-        player.volume = 0;
-        volumeSlider.value = 0;
-      } else {
-        player.volume = volumeSlider.dataset.prev || .5;
-        volumeSlider.value = player.volume;
+    hls.on(Hls.Events.ERROR, (e, data) => {
+      if (data.fatal) {
+        showLoading(false);
+        showToast('Stream terputus, mencoba ulang...', 'warning');
+        const retryKey = ch ? ch.id : url;
+        streamRetries[retryKey] = (streamRetries[retryKey] || 0) + 1;
+        if (streamRetries[retryKey] < 3) {
+          setTimeout(() => loadStream(url, ch), 2000);
+        } else {
+          showToast('Gagal memuat stream', 'error');
+          streamRetries[retryKey] = 0;
+        }
       }
-      updateVolume();
     });
-    
-    fullscreenBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      toggleFullscreen();
+  } else if (video.canPlayType('application/vnd.apple.mpegurl') && isHLS) {
+    video.src = url;
+    video.play().catch(() => {});
+    showLoading(false);
+    isPlaying = true;
+    updatePlayIcons();
+  } else {
+    video.src = url;
+    video.play().catch(e => {
+      showLoading(false);
+      showToast('Format tidak didukung browser', 'error');
     });
-    
-    playerContainer.addEventListener('dblclick', toggleFullscreen);
-    searchInput.addEventListener('input', () => debounce(handleSearch, 250));
-    
-    document.addEventListener('keydown', e => {
-      if (document.activeElement === searchInput) return;
-      if (e.code === 'Space') {
-        e.preventDefault();
-        togglePlay();
-      }
-      if (e.code === 'KeyF') {
-        e.preventDefault();
-        toggleFullscreen();
-      }
-      if (e.code === 'ArrowUp') {
-        e.preventDefault();
-        volumeSlider.value = Math.min(1, parseFloat(volumeSlider.value) + .05);
-        updateVolume();
-      }
-      if (e.code === 'ArrowDown') {
-        e.preventDefault();
-        volumeSlider.value = Math.max(0, parseFloat(volumeSlider.value) - .05);
-        updateVolume();
-      }
-    });
-    
-    document.addEventListener('fullscreenchange', () => {
-      document.fullscreenElement 
-        ? playerContainer.classList.add('fullscreen') 
-        : playerContainer.classList.remove('fullscreen');
-    });
-    
-    playerContainer.addEventListener('mouseleave', () => {
-      if (!player.paused) clearTimeout(controlsTimer);
-    });
-    
-    window.addEventListener('load', init);
-  </script>
+    isPlaying = true;
+    updatePlayIcons();
+  }
+}
+
+function updateInfoBar(ch) {
+  document.getElementById('info-name').textContent = ch.name;
+  document.getElementById('info-country').textContent = ch.country || '—';
+  document.getElementById('info-category').textContent = (ch.categories && ch.categories[0]) || '—';
+
+  const logoWrap = document.getElementById('info-logo-wrap');
+  if (ch.logo) {
+    logoWrap.innerHTML = `<img src="${ch.logo}" alt="${ch.name}" onerror="this.src=''">`;
+  } else {
+    logoWrap.innerHTML = `<span style="font-size:13px;font-weight:700;color:var(--accent-primary)">${getInitials(ch.name)}</span>`;
+  }
+  document.title = `${ch.name} — NusaTV`;
+}
+
+function showLoading(show) {
+  const overlay = document.getElementById('loading-overlay');
+  overlay.classList.toggle('visible', show);
+}
+
+function updatePlayIcons() {
+  document.getElementById('icon-play').style.display = isPlaying ? 'none' : 'block';
+  document.getElementById('icon-pause').style.display = isPlaying ? 'block' : 'none';
+  const centerBtn = document.getElementById('center-play-btn');
+  centerBtn.classList.toggle('visible', !isPlaying);
+  centerBtn.querySelector('svg').innerHTML = isPlaying
+    ? '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>'
+    : '<polygon points="5,3 19,12 5,21"/>';
+}
+
+function togglePlay() {
+  if (!video.src && !hls) return;
+  if (isPlaying) {
+    video.pause();
+    isPlaying = false;
+  } else {
+    video.play().catch(() => {});
+    isPlaying = true;
+  }
+  updatePlayIcons();
+}
+
+function applyZoom(delta, reset) {
+  if (reset) {
+    currentZoom = 1;
+  } else {
+    currentZoom = Math.min(zoomMax, Math.max(zoomMin, currentZoom + delta));
+  }
+  video.style.transform = `scale(${currentZoom})`;
+  const pct = Math.round(currentZoom * 100) + '%';
+  document.getElementById('zoom-display').textContent = pct;
+
+  const zOverlay = document.getElementById('zoom-overlay');
+  zOverlay.textContent = pct;
+  zOverlay.classList.add('visible');
+  clearTimeout(zoomHideTimer);
+  zoomHideTimer = setTimeout(() => zOverlay.classList.remove('visible'), 1500);
+}
+
+function setVolume(val) {
+  val = Math.min(100, Math.max(0, val));
+  video.volume = val / 100;
+  document.getElementById('volume-slider').value = val;
+  document.getElementById('volume-display').textContent = val + '%';
+  if (val === 0) {
+    isMuted = true;
+    document.getElementById('icon-vol').style.display = 'none';
+    document.getElementById('icon-muted').style.display = 'block';
+  } else {
+    isMuted = false;
+    document.getElementById('icon-vol').style.display = 'block';
+    document.getElementById('icon-muted').style.display = 'none';
+  }
+  const slider = document.getElementById('volume-slider');
+  slider.style.background = `linear-gradient(to right, var(--accent-primary) 0%, var(--accent-primary) ${val}%, var(--bg-elevated) ${val}%, var(--bg-elevated) 100%)`;
+}
+
+function toggleMute() {
+  if (isMuted) {
+    video.muted = false;
+    isMuted = false;
+    const vol = Math.round(video.volume * 100) || 80;
+    setVolume(vol);
+  } else {
+    video.muted = true;
+    isMuted = true;
+    document.getElementById('icon-vol').style.display = 'none';
+    document.getElementById('icon-muted').style.display = 'block';
+  }
+}
+
+function takeScreenshot() {
+  if (!video.src && !hls) return;
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth || 1280;
+  canvas.height = video.videoHeight || 720;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  try {
+    const link = document.createElement('a');
+    link.download = `nusatv-screenshot-${Date.now()}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    showToast('Screenshot tersimpan', 'success');
+  } catch (e) {
+    showToast('Gagal mengambil screenshot (CORS)', 'error');
+  }
+}
+
+function togglePiP() {
+  if (document.pictureInPictureElement) {
+    document.exitPictureInPicture();
+    document.getElementById('pip-indicator').style.display = 'none';
+  } else if (video.readyState >= 2) {
+    video.requestPictureInPicture().then(() => {
+      document.getElementById('pip-indicator').style.display = 'block';
+      showToast('Mode Picture-in-Picture aktif', 'info');
+    }).catch(() => showToast('PiP tidak didukung browser ini', 'warning'));
+  }
+}
+
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    document.getElementById('app').requestFullscreen().catch(() => {});
+    document.getElementById('icon-fs-expand').style.display = 'none';
+    document.getElementById('icon-fs-compress').style.display = 'block';
+  } else {
+    document.exitFullscreen();
+    document.getElementById('icon-fs-expand').style.display = 'block';
+    document.getElementById('icon-fs-compress').style.display = 'none';
+  }
+}
+
+function toggleTheater() {
+  theaterMode = !theaterMode;
+  document.getElementById('app').classList.toggle('theater-mode', theaterMode);
+  document.getElementById('btn-theater').classList.toggle('active', theaterMode);
+  showToast(theaterMode ? 'Theater Mode aktif' : 'Theater Mode nonaktif', 'info');
+}
+
+function prevChannel() {
+  if (currentIndex > 0) playChannel(currentIndex - 1);
+  else if (filteredChannels.length) playChannel(filteredChannels.length - 1);
+}
+
+function nextChannel() {
+  if (currentIndex < filteredChannels.length - 1) playChannel(currentIndex + 1);
+  else playChannel(0);
+}
+
+function updateProgressBar() {
+  if (video.duration && isFinite(video.duration)) {
+    const pct = (video.currentTime / video.duration) * 100;
+    document.getElementById('progress-fill').style.width = pct + '%';
+    const cur = fmtTime(video.currentTime);
+    const dur = fmtTime(video.duration);
+    document.getElementById('time-display').textContent = `${cur} / ${dur}`;
+  } else {
+    document.getElementById('progress-fill').style.width = '100%';
+    document.getElementById('time-display').textContent = '— / LIVE';
+  }
+}
+
+function fmtTime(s) {
+  if (!isFinite(s)) return '00:00';
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = Math.floor(s % 60);
+  if (h) return `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+  return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+
+video.addEventListener('play', () => { isPlaying = true; updatePlayIcons(); showLoading(false); });
+video.addEventListener('pause', () => { isPlaying = false; updatePlayIcons(); });
+video.addEventListener('waiting', () => showLoading(true));
+video.addEventListener('canplay', () => showLoading(false));
+video.addEventListener('timeupdate', updateProgressBar);
+video.addEventListener('leavepictureinpicture', () => {
+  document.getElementById('pip-indicator').style.display = 'none';
+});
+video.addEventListener('dblclick', toggleFullscreen);
+
+document.getElementById('btn-play').addEventListener('click', togglePlay);
+document.getElementById('center-play-btn').addEventListener('click', togglePlay);
+document.getElementById('btn-prev').addEventListener('click', prevChannel);
+document.getElementById('btn-next').addEventListener('click', nextChannel);
+document.getElementById('btn-mute').addEventListener('click', toggleMute);
+document.getElementById('btn-fullscreen').addEventListener('click', toggleFullscreen);
+document.getElementById('btn-theater').addEventListener('click', toggleTheater);
+document.getElementById('btn-screenshot').addEventListener('click', takeScreenshot);
+document.getElementById('btn-pip').addEventListener('click', togglePiP);
+document.getElementById('hov-screenshot').addEventListener('click', takeScreenshot);
+document.getElementById('hov-pip').addEventListener('click', togglePiP);
+document.getElementById('hov-fullscreen').addEventListener('click', toggleFullscreen);
+
+document.getElementById('btn-zoom-in').addEventListener('click', () => applyZoom(zoomStep));
+document.getElementById('btn-zoom-out').addEventListener('click', () => applyZoom(-zoomStep));
+document.getElementById('btn-zoom-reset').addEventListener('click', () => applyZoom(0, true));
+document.getElementById('hov-zoom-in').addEventListener('click', () => applyZoom(zoomStep));
+document.getElementById('hov-zoom-out').addEventListener('click', () => applyZoom(-zoomStep));
+document.getElementById('hov-zoom-reset').addEventListener('click', () => applyZoom(0, true));
+
+document.getElementById('volume-slider').addEventListener('input', e => setVolume(+e.target.value));
+
+document.getElementById('btn-toggle-sidebar').addEventListener('click', () => {
+  document.getElementById('app').classList.toggle('sidebar-collapsed');
+});
+
+document.getElementById('search-input').addEventListener('input', e => {
+  searchQuery = e.target.value;
+  renderChannelList();
+});
+
+document.getElementById('country-filter').addEventListener('change', e => {
+  activeCountry = e.target.value;
+  renderChannelList();
+});
+
+document.querySelectorAll('.cat-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.cat-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeCategory = btn.dataset.cat;
+    renderChannelList();
+  });
+});
+
+document.getElementById('progress-track').addEventListener('click', e => {
+  if (!video.duration || !isFinite(video.duration)) return;
+  const rect = e.currentTarget.getBoundingClientRect();
+  const pct = (e.clientX - rect.left) / rect.width;
+  video.currentTime = pct * video.duration;
+});
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  switch (e.key) {
+    case ' ':
+    case 'k':
+      e.preventDefault(); togglePlay(); break;
+    case 'f':
+    case 'F':
+      toggleFullscreen(); break;
+    case 'm':
+    case 'M':
+      toggleMute(); break;
+    case 'ArrowUp':
+      e.preventDefault(); setVolume(Math.round(video.volume * 100) + 5); break;
+    case 'ArrowDown':
+      e.preventDefault(); setVolume(Math.round(video.volume * 100) - 5); break;
+    case 'ArrowRight':
+      e.preventDefault(); nextChannel(); break;
+    case 'ArrowLeft':
+      e.preventDefault(); prevChannel(); break;
+    case '+':
+    case '=':
+      applyZoom(zoomStep); break;
+    case '-':
+    case '_':
+      applyZoom(-zoomStep); break;
+    case '0':
+      applyZoom(0, true); break;
+    case 'p':
+    case 'P':
+      togglePiP(); break;
+    case 't':
+    case 'T':
+      toggleTheater(); break;
+    case 's':
+    case 'S':
+      takeScreenshot(); break;
+  }
+});
+
+let wheelTimeout;
+document.getElementById('video-wrapper').addEventListener('wheel', e => {
+  e.preventDefault();
+  const delta = e.deltaY < 0 ? zoomStep : -zoomStep;
+  applyZoom(delta);
+  clearTimeout(wheelTimeout);
+}, { passive: false });
+
+setVolume(80);
+loadData();
+</script>
 </body>
 </html>
