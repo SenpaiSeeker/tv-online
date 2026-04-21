@@ -225,27 +225,177 @@ body::before {
   box-shadow: 0 0 12px rgba(0,212,255,0.15);
 }
 
-#country-filter {
+#country-dropdown {
   margin: 10px 12px 0;
-  padding: 7px 12px;
+  width: calc(100% - 24px);
+  position: relative;
+  z-index: 200;
+}
+
+#country-trigger {
+  width: 100%;
+  padding: 8px 12px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
-  border-radius: 8px;
+  border-radius: 10px;
   color: var(--text-secondary);
   font-family: var(--font-ui);
   font-size: 13px;
-  outline: none;
   cursor: pointer;
+  display: flex; align-items: center; gap: 10px;
   transition: all 0.2s;
-  width: calc(100% - 24px);
+  user-select: none;
 }
 
-#country-filter:focus {
+#country-trigger:hover,
+#country-trigger.open {
   border-color: var(--accent-primary);
   color: var(--text-primary);
+  background: var(--bg-card);
 }
 
-#country-filter option { background: var(--bg-elevated); }
+#country-trigger .trigger-flag {
+  font-size: 18px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+#country-trigger .trigger-label {
+  flex: 1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+#country-trigger .trigger-arrow {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform 0.25s;
+  display: flex;
+}
+
+#country-trigger.open .trigger-arrow {
+  transform: rotate(180deg);
+  color: var(--accent-primary);
+}
+
+#country-panel {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-glow);
+  border-radius: 12px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.7), 0 0 0 1px rgba(0,212,255,0.05);
+  overflow: hidden;
+  display: none;
+  flex-direction: column;
+  max-height: 320px;
+}
+
+#country-panel.open { display: flex; }
+
+#country-search-wrap {
+  padding: 10px 10px 8px;
+  position: relative;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+#country-search-input {
+  width: 100%;
+  padding: 7px 10px 7px 34px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+#country-search-input:focus {
+  border-color: var(--accent-primary);
+}
+
+#country-search-input::placeholder { color: var(--text-muted); }
+
+#country-search-wrap .cs-icon {
+  position: absolute; left: 20px; top: 50%; transform: translateY(-50%);
+  color: var(--text-muted); pointer-events: none;
+}
+
+#country-list {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--bg-elevated) transparent;
+  flex: 1;
+  padding: 6px;
+}
+
+#country-list::-webkit-scrollbar { width: 4px; }
+#country-list::-webkit-scrollbar-thumb { background: var(--bg-elevated); border-radius: 4px; }
+
+.country-option {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: 1px solid transparent;
+}
+
+.country-option:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-subtle);
+}
+
+.country-option.selected {
+  background: rgba(0,212,255,0.08);
+  border-color: rgba(0,212,255,0.2);
+  color: var(--accent-primary);
+}
+
+.country-option .co-flag {
+  font-size: 20px;
+  line-height: 1;
+  flex-shrink: 0;
+  width: 28px; text-align: center;
+}
+
+.country-option .co-name {
+  font-size: 13px; font-weight: 500;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.country-option.selected .co-name { color: var(--accent-primary); }
+
+.country-option .co-count {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  padding: 1px 6px; border-radius: 4px;
+}
+
+.country-option .co-check {
+  flex-shrink: 0;
+  opacity: 0;
+  color: var(--accent-primary);
+  transition: opacity 0.15s;
+}
+
+.country-option.selected .co-check { opacity: 1; }
+
+#country-empty {
+  text-align: center;
+  padding: 20px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  display: none;
+}
+
+#country-empty.show { display: block; }
 
 #channel-list-wrap {
   flex: 1; overflow-y: auto;
@@ -922,9 +1072,27 @@ body::before {
       <button class="cat-tab" data-cat="entertainment">Hiburan</button>
     </div>
 
-    <select id="country-filter">
-      <option value="">— Semua Negara —</option>
-    </select>
+    <div id="country-dropdown">
+      <div id="country-trigger">
+        <span class="trigger-flag">🌍</span>
+        <span class="trigger-label">Semua Negara</span>
+        <span class="trigger-arrow">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </span>
+      </div>
+      <div id="country-panel">
+        <div id="country-search-wrap">
+          <svg class="cs-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+          <input id="country-search-input" type="text" placeholder="Cari negara...">
+        </div>
+        <div id="country-list"></div>
+        <div id="country-empty">Negara tidak ditemukan</div>
+      </div>
+    </div>
 
     <div class="sidebar-header">
       <span class="sidebar-title">Channels</span>
@@ -1190,15 +1358,21 @@ async function fetchJSON(url) {
   return r.json();
 }
 
+let countryMap = {};
+
 async function loadData() {
   try {
-    const [channels, streams] = await Promise.all([
+    const [channels, streams, countries] = await Promise.all([
       fetchJSON(`${API_BASE}/channels.json`),
-      fetchJSON(`${API_BASE}/streams.json`)
+      fetchJSON(`${API_BASE}/streams.json`),
+      fetchJSON(`${API_BASE}/countries.json`)
     ]);
 
     allChannels = channels;
     allStreams = streams;
+
+    countryMap = {};
+    countries.forEach(c => { countryMap[c.code] = { name: c.name, flag: c.flag || '🏳️' }; });
 
     channelStreamMap = {};
     for (const s of streams) {
@@ -1213,14 +1387,18 @@ async function loadData() {
     document.getElementById('stat-channels').textContent = `${channelsWithStreams.length} CH`;
     document.getElementById('stat-streams').textContent = `${streams.length} Streams`;
 
-    const countries = [...new Set(channelsWithStreams.map(c => c.country).filter(Boolean))].sort();
-    const sel = document.getElementById('country-filter');
-    countries.forEach(code => {
-      const opt = document.createElement('option');
-      opt.value = code;
-      opt.textContent = code;
-      sel.appendChild(opt);
+    const countryCodes = [...new Set(channelsWithStreams.map(c => c.country).filter(Boolean))].sort((a, b) => {
+      const na = countryMap[a] ? countryMap[a].name : a;
+      const nb = countryMap[b] ? countryMap[b].name : b;
+      return na.localeCompare(nb);
     });
+
+    const countPerCountry = {};
+    channelsWithStreams.forEach(ch => {
+      if (ch.country) countPerCountry[ch.country] = (countPerCountry[ch.country] || 0) + 1;
+    });
+
+    buildCountryDropdown(countryCodes, countPerCountry);
 
     filteredChannels = channelsWithStreams;
     renderChannelList();
@@ -1590,10 +1768,94 @@ document.getElementById('search-input').addEventListener('input', e => {
   renderChannelList();
 });
 
-document.getElementById('country-filter').addEventListener('change', e => {
-  activeCountry = e.target.value;
+let allCountryCodes = [];
+let allCountryCountMap = {};
+
+function buildCountryDropdown(codes, countMap) {
+  allCountryCodes = codes;
+  allCountryCountMap = countMap;
+  renderCountryList(codes, countMap, '');
+}
+
+function renderCountryList(codes, countMap, query) {
+  const list = document.getElementById('country-list');
+  const empty = document.getElementById('country-empty');
+  const q = query.toLowerCase();
+
+  const filtered = codes.filter(code => {
+    const info = countryMap[code];
+    const name = info ? info.name.toLowerCase() : code.toLowerCase();
+    return name.includes(q) || code.toLowerCase().includes(q);
+  });
+
+  list.innerHTML = '';
+
+  const allItem = document.createElement('div');
+  allItem.className = 'country-option' + (!activeCountry ? ' selected' : '');
+  allItem.dataset.value = '';
+  allItem.innerHTML = `
+    <span class="co-flag">🌍</span>
+    <span class="co-name">Semua Negara</span>
+    <svg class="co-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`;
+  allItem.addEventListener('click', () => selectCountry('', 'Semua Negara', '🌍'));
+  if (!q) list.appendChild(allItem);
+
+  filtered.forEach(code => {
+    const info = countryMap[code];
+    const name = info ? info.name : code;
+    const flag = info ? info.flag : '🏳️';
+    const count = countMap[code] || 0;
+    const item = document.createElement('div');
+    item.className = 'country-option' + (activeCountry === code ? ' selected' : '');
+    item.dataset.value = code;
+    item.innerHTML = `
+      <span class="co-flag">${flag}</span>
+      <span class="co-name">${name}</span>
+      <span class="co-count">${count}</span>
+      <svg class="co-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`;
+    item.addEventListener('click', () => selectCountry(code, name, flag));
+    list.appendChild(item);
+  });
+
+  empty.classList.toggle('show', filtered.length === 0);
+}
+
+function selectCountry(code, name, flag) {
+  activeCountry = code;
+  document.getElementById('country-trigger').querySelector('.trigger-flag').textContent = flag;
+  document.getElementById('country-trigger').querySelector('.trigger-label').textContent = name;
+  closeCountryPanel();
+  renderCountryList(allCountryCodes, allCountryCountMap, document.getElementById('country-search-input').value);
   renderChannelList();
+}
+
+function openCountryPanel() {
+  document.getElementById('country-panel').classList.add('open');
+  document.getElementById('country-trigger').classList.add('open');
+  document.getElementById('country-search-input').focus();
+  document.getElementById('country-search-input').value = '';
+  renderCountryList(allCountryCodes, allCountryCountMap, '');
+}
+
+function closeCountryPanel() {
+  document.getElementById('country-panel').classList.remove('open');
+  document.getElementById('country-trigger').classList.remove('open');
+}
+
+document.getElementById('country-trigger').addEventListener('click', e => {
+  e.stopPropagation();
+  const isOpen = document.getElementById('country-panel').classList.contains('open');
+  if (isOpen) closeCountryPanel(); else openCountryPanel();
 });
+
+document.getElementById('country-search-input').addEventListener('input', e => {
+  renderCountryList(allCountryCodes, allCountryCountMap, e.target.value);
+});
+
+document.getElementById('country-search-input').addEventListener('click', e => e.stopPropagation());
+document.getElementById('country-panel').addEventListener('click', e => e.stopPropagation());
+
+document.addEventListener('click', () => closeCountryPanel());
 
 document.querySelectorAll('.cat-tab').forEach(btn => {
   btn.addEventListener('click', () => {
